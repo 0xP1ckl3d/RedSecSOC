@@ -12,6 +12,10 @@ It uses your existing indexer: no second search cluster or cloud AI dependency. 
 
 [Supported stack](#supported-stack) · [Features](#features) · [Setup](#setup) · [Usage](#usage) · [Validation](docs/VALIDATION.md)
 
+![RedSecSOC overview with severity cards, count context, evidence correlation and network record types](docs/images/overview.png)
+
+*Overview from a configured deployment. Display labels and record counts depend on the environment.*
+
 ## Supported stack
 
 The current integration targets **native Wazuh alert/archive documents** through the Wazuh indexer's OpenSearch-compatible APIs.
@@ -118,7 +122,7 @@ For TLS renewal, remote metadata, verification, updates and uninstalling, see [t
 ## Usage
 
 1. **Start at Overview.** Occurrences count repeated records, not incidents. Select a severity, time bucket or protocol-record count to inspect matching records.
-2. **Set the network window beside its table.** Default last 24 hours; drag to 15 minutes–48 hours or apply exact UTC dates. The caption shows the actual range and drill-through links retain it.
+2. **Set the network window beside its table.** Default last 24 hours; drag to 15 minutes–48 hours and release to apply, or set exact UTC dates. Existing results stay visible while updating and the results area retains its height. The caption shows the actual range and drill-through links retain it.
 3. **Filter Patterns & indicators.** Apply host/collector, rule, severity, disposition, assessment, protocol, port, endpoint or custom time filters. Expand a summary before reviewing occurrences. Destination summaries use flow records, not every protocol record.
 4. **Inspect the evidence.** Verify the file/script/process, recorded user and source fields. Missing data stays explicit; a filename or high severity alone does not prove compromise.
 5. **Record a scoped decision.** Safe needs specific recorded conditions. A PowerShell policy-test exemption does not cover a different executable dropped in the directory. Changed conditions stay visible with a badge and filter. Include Safe to review dismissed matches or revoke a saved scope.

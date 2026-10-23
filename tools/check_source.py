@@ -7,6 +7,12 @@ for path in files:
     relative=path.relative_to(root).as_posix()
     if path.suffix.lower() in ('.pem','.key','.pfx','.p12','.db','.sqlite','.gz') or path.name in ('config.json','topology.json','setup-credentials.txt','console-access.json','ssh-passwords.json'):bad.append((relative,'runtime or credential artifact'));continue
     if not path.is_file():continue
+    # Documentation screenshots require visual review; only bounded PNG assets
+    # are accepted here. Pixel content is not covered by text/secret scanning.
+    if relative.startswith('docs/images/') and path.suffix.lower()=='.png':
+        blob=path.read_bytes()
+        if not blob.startswith(b'\x89PNG\r\n\x1a\n') or len(blob)>2000000:bad.append((relative,'invalid or oversized documentation image'))
+        continue
     try:text=path.read_text(encoding='utf-8')
     except UnicodeDecodeError:bad.append((relative,'unexpected binary file'));continue
     if re.search(r'-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',text):bad.append((relative,'private key'))

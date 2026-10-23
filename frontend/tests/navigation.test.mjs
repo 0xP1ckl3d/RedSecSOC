@@ -53,7 +53,10 @@ test('alert and network explorer filters, page, and scroll survive detail naviga
   assert.ok(renderer.root.findAllByType('button').some(n=>n.props.className==='critical'&&text(n).includes('Critical detections')));
   assert.ok(renderer.root.findAllByType('button').some(n=>n.props.className==='suspicious'&&text(n).includes('Analyst-marked suspicious')));
   // The network panel has its own range; every drill-through uses that range.
+  const beforeSlide=calls.filter(u=>u.startsWith('/api/network-patterns?')).length;
   await change('Network trailing window minutes','60');
+  assert.equal(calls.filter(u=>u.startsWith('/api/network-patterns?')).length,beforeSlide);
+  await act(async()=>{renderer.root.findAllByType('input').find(n=>n.props['aria-label']==='Network trailing window minutes').props.onPointerUp({currentTarget:{value:'60'}});await new Promise(setImmediate)});
   await act(async()=>{await new Promise(r=>setTimeout(r,250))});
   const ranged=new URL('https://example.test'+calls.filter(u=>u.startsWith('/api/network-patterns?')).at(-1));
   assert.equal(new Date(ranged.searchParams.get('end'))-new Date(ranged.searchParams.get('start')),3600000);
