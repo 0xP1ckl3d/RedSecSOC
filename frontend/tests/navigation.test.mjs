@@ -14,6 +14,10 @@ const output=path.join(folder,'App.mjs');
 const bundle=await rolldown({input:path.join(root,'src/App.jsx'),platform:'node',external:['react','react-dom/client','lucide-react'],plugins:[{name:'ignore-test-css',resolveId(source){if(source.endsWith('.css'))return {id:source,external:true}},transform(code,id){if(id.endsWith('App.jsx'))return code.replace("import './style.css';",'')}}]});
 await bundle.write({file:output,format:'esm'});await bundle.close();
 const {default:App}=await import(pathToFileURL(output).href);
+const patternsOutput=path.join(folder,'Patterns.mjs');
+const patternsBundle=await rolldown({input:path.join(root,'src/Patterns.jsx'),platform:'node',external:['react','react-dom/client','lucide-react']});
+await patternsBundle.write({file:patternsOutput,format:'esm'});await patternsBundle.close();
+const {NetworkPatterns}=await import(pathToFileURL(patternsOutput).href);
 const text=node=>typeof node==='string'?node:(node.children||[]).map(text).join('');
 const event={key:'one',ref:{index:'wazuh-alerts-test',id:'one'},time:'2026-10-23T00:00:00Z',host:'EXAMPLE',agent_ip:'192.0.2.10',family:'Network activity',title:'Example event',subject:'Example subject',level:10,rule_id:'100',rule_groups:[],mitre:{},identity:{},facts:[],evidence:{},observations:[],gaps:[],guidance:[],state:{status:'New',assignee:''},is_alert:true};
 
@@ -66,6 +70,7 @@ test('alert and network explorer filters, page, and scroll survive detail naviga
   const fixed=new URL('https://example.test'+calls.filter(u=>u.startsWith('/api/network-patterns?')).at(-1));
   assert.equal(fixed.searchParams.get('start'),'2026-10-22T02:30:00.000Z');assert.equal(fixed.searchParams.get('end'),'2026-10-22T03:00:00.000Z');
   await click('Explore network patterns');
+  assert.equal(renderer.root.findAllByType('select').find(n=>n.props['aria-label']==='Pattern time window').props.value,'custom');
   assert.ok(calls.filter(u=>u.startsWith('/api/network-patterns?')).at(-1).includes('start=2026-10-22T02%3A30%3A00.000Z'));
   await click('Overview');
   await click('Run evidence correlation');
@@ -95,6 +100,13 @@ test('alert and network explorer filters, page, and scroll survive detail naviga
   await click('Network destinations');
   const patternQuery=calls.filter(u=>u.startsWith('/api/network-patterns?')).at(-1);
   assert.ok(patternQuery.includes('host=SENSOR')&&patternQuery.includes('port=445')&&patternQuery.includes('review=Changed'));
+  await change('Pattern network trailing window minutes','15');
+  assert.equal(calls.filter(u=>u.startsWith('/api/network-patterns?')).at(-1),patternQuery);
+  await act(async()=>{renderer.root.findAllByType('input').find(n=>n.props['aria-label']==='Pattern network trailing window minutes').props.onPointerUp({currentTarget:{value:'15'}});await new Promise(setImmediate)});
+  const patternWindow=new URL('https://example.test'+calls.filter(u=>u.startsWith('/api/network-patterns?')).at(-1));
+  assert.equal(new Date(patternWindow.searchParams.get('end'))-new Date(patternWindow.searchParams.get('start')),900000);
+  assert.equal(renderer.root.findAllByType('select').find(n=>n.props['aria-label']==='Pattern time window').props.value,'custom');
+  assert.equal(renderer.root.findAllByType('input').find(n=>n.props['aria-label']==='Pattern start').props.value,patternWindow.searchParams.get('start').slice(0,16));
   await click('Alert inbox');await click('Recurring patterns');
   const summaries=renderer.root.findAllByType('details').filter(n=>n.props.className==='detection-summary');assert.equal(summaries.length,1);assert.ok(text(summaries[0]).includes('4,910'));
   await act(async()=>{summaries[0].props.onToggle({currentTarget:{open:true}});await new Promise(setImmediate)});
@@ -103,6 +115,52 @@ test('alert and network explorer filters, page, and scroll survive detail naviga
   assert.ok(text(policyForm).includes('A whole rule cannot be marked Safe'));
  }finally{
   if(renderer)await act(async()=>renderer.unmount());
-  await fs.rm(folder,{recursive:true,force:true});
  }
 });
+
+test('network pattern time controls retain results, apply on release, and preserve the displayed range and filters on drill-through',async()=>{
+ globalThis.IS_REACT_ACT_ENVIRONMENT=true;
+ const initial={start:'2026-10-22T06:00:00.000Z',end:'2026-10-23T06:00:00.000Z',host:'EXAMPLE-SENSOR',protocol:'smb',port:'445',source_ip:'192.0.2.20',include_safe:false};
+ const queries=[],navigations=[];let hold=false,release,renderer;
+ const fixture=records=>({patterns:[{key:'192.0.2.10',criteria:{destination_ip:'192.0.2.10'},destination:{ip:'192.0.2.10',label:'Example destination',address_label:'Documentation range'},records,flow_estimate:records,source_estimate:1,sources:[{ip:'192.0.2.20',label:'Example source',records}],bytes_to_server:100,bytes_to_client:50,records_with_bytes:records,ports:[{key:'445'}],protocols:[{key:'smb'}],collectors:[],server_names:[],signatures:[],sample_ref:event.ref}],talkers:[],total_flow_records:records});
+ const api=async path=>{queries.push(new URL('https://example.test/api/'+path));if(hold)return new Promise(resolve=>{release=()=>resolve(fixture(7))});return fixture(3)};
+ function Controlled(){const [filters,setFilters]=React.useState(initial);return React.createElement(NetworkPatterns,{api,filters,onTimeChange:next=>setFilters(f=>({...f,...next})),user:{role:'viewer'},refreshKey:0,open(){},navigate:(view,filters)=>navigations.push({view,filters})})}
+ const input=label=>renderer.root.findAllByType('input').find(n=>n.props['aria-label']===label);
+ const clickRecord=label=>renderer.root.findAllByType('button').find(n=>text(n)===label).props.onClick();
+ try{
+  await act(async()=>{renderer=create(React.createElement(Controlled),{createNodeMock:element=>element.props.className==='network-results'?{getBoundingClientRect:()=>({height:500})}:null});await new Promise(setImmediate)});
+  assert.equal(new Date(queries[0].searchParams.get('end'))-new Date(queries[0].searchParams.get('start')),86400000);
+  assert.ok(renderer.root.findAllByType('p').some(n=>text(n).includes('Results: 24-hour window')));
+  const before=queries.length;
+  await act(async()=>input('Pattern network trailing window minutes').props.onChange({target:{value:'60'}}));
+  assert.equal(queries.length,before,'dragging must not fetch');
+  hold=true;
+  await act(async()=>{input('Pattern network trailing window minutes').props.onPointerUp({currentTarget:{value:'60'}});await new Promise(setImmediate)});
+  assert.equal(queries.length,before+1);
+  assert.equal(renderer.root.findAllByType('div').find(n=>n.props.className==='network-results').props.style.minHeight,500);
+  assert.equal(new Date(queries.at(-1).searchParams.get('end'))-new Date(queries.at(-1).searchParams.get('start')),3600000);
+  assert.ok(renderer.root.findAllByType('button').some(n=>text(n)==='3 records'),'existing rows must stay mounted while loading');
+  await act(async()=>clickRecord('3 records'));
+  assert.equal(navigations.at(-1).filters.start,initial.start,'pending range must not be used for old results');
+  assert.equal(navigations.at(-1).filters.end,initial.end);
+  await act(async()=>{release();await new Promise(setImmediate)});hold=false;
+  assert.equal(renderer.root.findAllByType('div').find(n=>n.props.className==='network-results').props.style.minHeight,500);
+  await act(async()=>renderer.root.findAllByType('div').find(n=>n.props.className==='network-window').props.onPointerLeave({buttons:0}));
+  assert.equal(renderer.root.findAllByType('div').find(n=>n.props.className==='network-results').props.style.minHeight,260);
+  await act(async()=>clickRecord('7 records'));
+  const filtered=navigations.at(-1).filters;
+  assert.equal(new Date(filtered.end)-new Date(filtered.start),3600000);
+  for(const key of ['host','protocol','port','source_ip','include_safe'])assert.equal(filtered[key],initial[key],key);
+  assert.equal(filtered.destination_ip,'192.0.2.10');assert.equal(filtered.record_type,'flow');
+  await act(async()=>{input('Pattern network range start').props.onChange({target:{value:'2026-10-22T03:00'}});input('Pattern network range end').props.onChange({target:{value:'2026-10-22T03:30'}})});
+  const beforeCustom=queries.length;
+  await act(async()=>{renderer.root.findByType('form').props.onSubmit({preventDefault(){}});await new Promise(setImmediate)});
+  assert.equal(queries.length,beforeCustom+1);assert.equal(queries.at(-1).searchParams.get('start'),'2026-10-22T03:00:00.000Z');assert.equal(queries.at(-1).searchParams.get('end'),'2026-10-22T03:30:00.000Z');
+  await act(async()=>input('Pattern network range end').props.onChange({target:{value:'2026-10-22T02:30'}}));
+  const beforeInvalid=queries.length;
+  await act(async()=>renderer.root.findByType('form').props.onSubmit({preventDefault(){}}));
+  assert.equal(queries.length,beforeInvalid);assert.ok(renderer.root.findAllByType('p').some(n=>n.props.role==='alert'));
+ }finally{if(renderer)await act(async()=>renderer.unmount())}
+});
+
+test.after(async()=>{await fs.rm(folder,{recursive:true,force:true})});
