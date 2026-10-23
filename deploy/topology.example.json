@@ -1,0 +1,14 @@
+{
+  "label": "Example configured deployment",
+  "services": [
+    {"id":"console","name":"RedSecSOC","host":"soc.example.test","unit":"redsec-soc-console","observation":"services.json","lane":2,"binding":"Configured HTTPS port 8443","url":"https://soc.example.test:8443","authentication":"Separate console account","purpose":"Read-only telemetry investigation and independent case state"},
+    {"id":"manager","name":"Wazuh manager","host":"wazuh.example.test","unit":"wazuh-manager","observation":"services.json","lane":1,"purpose":"Configured endpoint ingestion and detection"},
+    {"id":"indexer","name":"Wazuh indexer","host":"search.example.test","unit":"wazuh-indexer","observation":"search-status.json","lane":1,"purpose":"Existing search cluster; remote status is unknown unless exported"}
+  ],
+  "nodes": [{"id":"endpoints","name":"Endpoint agents","lane":0,"purpose":"Configured collection sources; verify inventory and source observations separately"}],
+  "flows": [
+    {"source_id":"endpoints","target_id":"manager","from":"Endpoint agents","to":"Wazuh manager","transport":"Configured agent transport","data":"Configured endpoint collection","basis":"Operator-configured architecture"},
+    {"source_id":"manager","target_id":"indexer","from":"Wazuh manager","to":"Wazuh indexer","transport":"Configured shipper","data":"Alerts and raw archives if enabled","basis":"Operator-configured architecture"},
+    {"source_id":"indexer","target_id":"console","from":"Wazuh indexer","to":"RedSecSOC","transport":"TLS search API","data":"Restricted alert/archive reads","basis":"Operator-configured architecture"}
+  ]
+}

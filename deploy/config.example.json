@@ -1,0 +1,21 @@
+{
+  "site_label": "Example security environment",
+  "listen_host": "127.0.0.1",
+  "listen_port": 8443,
+  "origins": ["https://soc.example.test:8443"],
+  "indexer_url": "https://127.0.0.1:9200",
+  "indexer_ca": "/etc/redsec-soc-console/indexer-ca.pem",
+  "indexer_user": "redsec_console_service",
+  "indexer_password": "REPLACE_WITH_GENERATED_SECRET",
+  "database": "/var/lib/redsec-soc-console/console.db",
+  "metadata": "/var/lib/redsec-soc-metadata",
+  "frontend": "/opt/redsec-soc-console/frontend/dist",
+  "tls_cert": "/etc/redsec-soc-console/server.pem",
+  "tls_key": "/etc/redsec-soc-console/server-key.pem",
+  "local_metadata": true,
+  "wazuh_home": "/var/ossec",
+  "asset_aliases_file": "/etc/redsec-soc-console/asset-aliases.json",
+  "topology_file": "/etc/redsec-soc-console/topology.json",
+  "observed_units": ["wazuh-manager", "wazuh-indexer", "wazuh-dashboard", "filebeat", "redsec-soc-console"],
+  "links": {"Wazuh dashboard": "https://wazuh.example.test"}
+}

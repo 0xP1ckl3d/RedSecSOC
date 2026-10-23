@@ -1,0 +1,21 @@
+{
+  "name": "redsec-soc-console",
+  "version": "0.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build",
+    "dev": "vite --host 127.0.0.1",
+    "test": "node --test src/queue-actions.test.mjs tests/navigation.test.mjs"
+  },
+  "dependencies": {
+    "lucide-react": "1.61.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "6.1.2",
+    "react-test-renderer": "19.3.1",
+    "vite": "8.3.5"
+  }
+}
